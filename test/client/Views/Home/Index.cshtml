@@ -1,0 +1,9 @@
+﻿@{ ViewData["Title"] = "Home Page"; }
+@model OAuth2NetCore.Model.Token
+
+<h4>Access Token</h4>
+<textarea class="form-control" style="width:100%;height:190px;">@(Model?.AccessToken) </textarea>
+<h4>Refresh Token</h4>
+<textarea class="form-control" style="width:100%;height:50px;">@(Model?.RefreshToken) </textarea>
+<h4>expire</h4>
+<textarea class="form-control" style="width:100%;height:50px;">@(Model?.AccessTokenExpiresIn) </textarea>

@@ -1,0 +1,25 @@
+﻿@using Microsoft.AspNetCore.Authentication
+@{ ViewData["Title"] = "Privacy Policy"; }
+<h1>User: @User.Identity.Name</h1>
+<div>
+    @{ var claimsID = (System.Security.Claims.ClaimsIdentity)User.Identity;}
+    <ul>
+        @foreach (var claim in claimsID.Claims)
+        {
+<li>@claim.Type: @claim.Value</li>}
+    </ul>
+</div>
+<code id="code">
+    @Model
+</code>
+
+<div>
+    <button type="button" class="btn btn-primary" onclick="Test()">Test</button>
+</div>
+<script>
+    var Test = function () {
+        $.get("/testapi").then(function (rs) {
+            $("#code").html(rs);
+        });
+    };
+</script>

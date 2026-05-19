@@ -1,0 +1,7 @@
+{
+  "profiles": {
+    "X509SecretEncryptor": {
+      "commandName": "Project"
+    }
+  }
+}

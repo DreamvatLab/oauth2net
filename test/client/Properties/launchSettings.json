@@ -1,0 +1,12 @@
+﻿{
+  "profiles": {
+    "client": {
+      "commandName": "Project",
+      "applicationUrl": "http://0.0.0.0:1002",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "ASPNETCORE_HOSTINGSTARTUPASSEMBLIES": "Microsoft.AspNetCore.Mvc.Razor.RuntimeCompilation"
+      }
+    }
+  }
+}

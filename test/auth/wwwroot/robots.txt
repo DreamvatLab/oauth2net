@@ -1,0 +1,8 @@
+#
+# robots.txt for Dreamvat Hub
+# Version 3.0
+#
+
+User-agent: *
+
+Disallow: *
