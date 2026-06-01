@@ -29,6 +29,31 @@ namespace api.Controllers {
             })
             .ToArray();
         }
+
+        // Diagnostic endpoint — always 200 (just [Authorize]); shows whether the "role" claim is
+        // readable by its short literal type. This is the lookup production code does
+        // (claim.Type == "role"). If inbound claim mapping is broken, RoleFoundByShortName is false
+        // and you'll see the legacy WS-* URI (.../claims/role) in Claims instead of a plain "role".
+        [HttpGet("/roleinfo")]
+        public IActionResult RoleInfo()
+        {
+            var shortRole = User.FindFirst("role");
+
+            return new JsonResult(new
+            {
+                RoleFoundByShortName = shortRole != null,
+                RoleValue = shortRole?.Value,
+                IsInRole_4 = User.IsInRole("4"), // interactive login issues role "4" (see auth/MyTokenClaimBuilder)
+                Claims = User.Claims.Select(c => new { c.Type, c.Value }),
+            });
+        }
+
+        // Role-based authorization end to end — mirrors the production scenario.
+        // 200 means roles are read correctly; 403 reproduces the post-upgrade bug.
+        [Authorize(Roles = "4")]
+        [HttpGet("/roleprotected")]
+        public IActionResult RoleProtected()
+            => Content("OK: role-based authorization passed (token role contains 4).");
     }
 
     public class UserDTO

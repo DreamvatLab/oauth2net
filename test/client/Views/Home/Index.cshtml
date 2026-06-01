@@ -7,3 +7,10 @@
 <textarea class="form-control" style="width:100%;height:50px;">@(Model?.RefreshToken) </textarea>
 <h4>expire</h4>
 <textarea class="form-control" style="width:100%;height:50px;">@(Model?.AccessTokenExpiresIn) </textarea>
+
+<h4>Role tests</h4>
+<ul>
+    <li><a href="/testapi" target="_blank">/testapi</a> — call protected API (authentication only)</li>
+    <li><a href="/testrole" target="_blank">/testrole</a> — diagnostic: is the "role" claim readable by its short name?</li>
+    <li><a href="/testroleprotected" target="_blank">/testroleprotected</a> — role-based authz: expect <b>200</b> (403 = bug is back)</li>
+</ul>

@@ -24,6 +24,11 @@ namespace Microsoft.Extensions.DependencyInjection {
 
             authBuilder
                 .AddJwtBearer(jwtOptions => {
+                    // Keep claim types verbatim (short names like "role"/"name") instead of
+                    // remapping them to legacy WS-* URIs. The active JsonWebTokenHandler ignores
+                    // JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear() above, so this is
+                    // what actually disables the remapping for net10 / JwtBearer 10.x.
+                    jwtOptions.MapInboundClaims = false;
                     jwtOptions.TokenValidationParameters = new TokenValidationParameters {
                         NameClaimType = options.NameClaimType,
                         RoleClaimType = options.RoleClaimType,
