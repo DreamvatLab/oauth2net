@@ -7,11 +7,11 @@
 
             if (codeChanllengeMethod == OAuth2Consts.Pkce_Plain)
             {
-                r = codeVerifier == codeChanllenge;
+                r = OAuth2Utils.FixedTimeEquals(codeVerifier, codeChanllenge);
             }
             else if (codeChanllengeMethod == OAuth2Consts.Pkce_S256)
             {
-                r = codeChanllenge == OAuth2Utils.ToSHA256Base64URL(codeVerifier);
+                r = OAuth2Utils.FixedTimeEquals(codeChanllenge, OAuth2Utils.ToSHA256Base64URL(codeVerifier));
             }
 
             // not suppor other methods

@@ -2,6 +2,63 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格，版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [3.0.0] — 2026-06-12
+
+整体定位：**框架升级（net10）+ 第二轮安全加固 major 版本**。完整清单见 [`docs/SECURITY-AUDIT-2026-06-12.md`](docs/SECURITY-AUDIT-2026-06-12.md)。
+
+### ⚠ Breaking Changes
+
+- **目标框架 `netstandard2.0` → `net10.0`**（F-1）。仍在 .NET Framework / netstandard / net6-8 的使用者无法再引用本库，必须升到 net10。
+- **核心库 `OAuth2NetCore` 改用 ASP.NET Core 共享框架**（F-1）。移除遗留的 `Microsoft.AspNetCore.Authentication.OAuth` 2.3.x 包、改为 `<FrameworkReference Include="Microsoft.AspNetCore.App" />`；库由「可跨框架」变为绑定 ASP.NET Core 共享框架。
+- **token 端点对「机密客户端漏传 secret」的错误码改变**（S-2）：从 `invalid_request`（"client secret is missing"）变为 `invalid_client`。对错误字符串硬断言的自动化客户端会受影响。
+- **同步 `RedisClientStore.GetClient()` 对未知 client 从抛异常改为返回 `null`**（B-2），与异步版及接口契约一致。
+
+### Added
+
+- `OAuth2Utils.FixedTimeEquals(...)`：常量时间字符串比较（基于 BCL `CryptographicOperations.FixedTimeEquals`），用于 PKCE / state / secret 比对（S-4）。
+- `docs/SECURITY-AUDIT-2026-06-12.md`：本轮审计与修复记录。
+
+### Changed
+
+- 所有项目目标框架统一为 `net10.0`（F-1）。
+- `X509SecurityKeyProvider`、`X509SecretEncryptor` 改用 `X509CertificateLoader.LoadPkcs12FromFile`（F-2，了结上次 M-5 遗留；公开构造签名不变）。
+- 公共客户端（PKCE）凭据可经 body 提取：`ExractClientCredentialsFromBody` 放开空 secret，由 `VerifyClientAsync` 依 `IsPublic` 判定（S-2）。
+- `DefaultPkceValidator`（PKCE challenge）、`DefaultAuthServer`（clear-token state）、`DefaultClientValidator`（client secret）三处比对统一改为常量时间（S-4）。
+- `DefaultClientValidator`、`DefaultAuthServer.ErrorHandler` 日志改用结构化模板，杜绝用户输入被当作日志格式串（S-3）。
+- 登录令牌 `t` 拼入授权 URL 前做 `Uri.EscapeDataString` 编码（S-1）。
+
+### Fixed
+
+- F-1 移除遗留 OAuth 2.3.x 包后消除两个传递高危 CVE：`Newtonsoft.Json` 11.0.2（GHSA-5crp-9r3c-p9vr）、`System.Security.Cryptography.Xml` 8.0.2（GHSA-37gx-xxp4-5rgx / GHSA-w3x6-4m5h-cxqf）。
+- S-1 登录令牌 `t` 未编码拼入授权 URL，可注入授权请求参数。
+- S-2 公共客户端凭据路径不可达，`IsPublic` 形同虚设，变相逼迫内嵌 secret。
+- S-3 用户输入直接作为日志模板，含 `{` 时可致 `FormatException`（500）/ 日志伪造。
+- S-4 PKCE challenge 与 state 比对非常量时间。
+- B-1 同步 `RedisClientStore.GetClients()` 用错 key/value，方法不可用。
+- B-2 同步 `RedisClientStore.GetClient()` 缺 `IsNull` 判断，未知 client 抛异常。
+
+### Removed
+
+- 核心库 `Microsoft.AspNetCore.Authentication.OAuth` 2.3.x 包及其传递 CVE（F-1）。
+- 核心库多余的 `System.Text.Json` / `Microsoft.Extensions.Configuration.Binder` / `Microsoft.Extensions.Logging` 显式引用（已在共享框架内，NU1510）。
+- Redis、Host 发行库中误放的 `coverlet.collector`。
+- `DefaultClientValidator` 中上次手写的 `FixedTimeEquals`（netstandard2.0 兼容产物，改为复用 `OAuth2Utils.FixedTimeEquals`）。
+
+### Known Limitations (未在本次发版处理)
+
+- 登出 CSRF（`/endsession`、`/signout` 为无防伪造的 GET）——属 OIDC `id_token_hint` 范畴。
+- Refresh token 重用检测（被盗 token 先用时撤销整个 token 族）。
+- 刷新时不重新校验 scopes（TTL 内旧 refresh token 仍按旧 scopes 续发）。
+- client secret 仍明文存储 + 比对（上次 C-2 剩余风险，建议改存哈希）。
+- 内存版授权码存储为进程内静态字典，多实例部署需 Redis 实现（当前未提供）。
+- 沿用上一版未处理项：OIDC 完整支持、token revocation/introspection、登录限流。
+
+### Note（按设计保留）
+
+- **Redis client secret 解密失败回退明文**：明文存储是受支持形态，`RedisClientStore` 维持回退行为，未改为 fail-closed。
+
+---
+
 ## [2.0.0] — 2026-05-19
 
 整体定位：**安全加固 major 版本**。完整漏洞清单与修复细节见 [`docs/SECURITY-AUDIT-2026-05-19.md`](docs/SECURITY-AUDIT-2026-05-19.md)，下游升级指南见 [`docs/UPGRADING-v2.md`](docs/UPGRADING-v2.md)。

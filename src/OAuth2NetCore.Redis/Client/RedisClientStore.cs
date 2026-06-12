@@ -23,7 +23,11 @@ namespace OAuth2NetCore.Redis.Client {
         public IClient GetClient(string clientID)
         {
             var json = Database.HashGet(_key, clientID);
-            var client = JsonSerializer.Deserialize<Model.Client>(json);
+            if (json.IsNull)
+            {
+                return null;
+            }
+            var client = JsonSerializer.Deserialize<Model.Client>(json.ToString());
 
             _secertEncryptor.TryDecrypt(client.Secret, out var secret);
             client.Secret = secret;
@@ -47,7 +51,7 @@ namespace OAuth2NetCore.Redis.Client {
         public IDictionary<string, IClient> GetClients()
         {
             var hashEntries = Database.HashGetAll(_key);
-            var dic = hashEntries.ToDictionary(x => x.ToString(), x => (IClient)JsonSerializer.Deserialize<Model.Client>(x.ToString()));
+            var dic = hashEntries.ToDictionary(x => x.Name.ToString(), x => (IClient)JsonSerializer.Deserialize<Model.Client>(x.Value.ToString()));
 
             //foreach (var client in dic.Values)
             //{

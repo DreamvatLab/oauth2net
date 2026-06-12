@@ -19,6 +19,18 @@ namespace OAuth2NetCore {
         }
 
         /// <summary>
+        /// Constant-time string equality. Used for comparing secrets / PKCE challenges / state so
+        /// the time taken does not leak how many leading characters matched (timing attack defense).
+        /// </summary>
+        public static bool FixedTimeEquals(string a, string b)
+        {
+            if (a == null || b == null) return ReferenceEquals(a, b);
+            var ab = Encoding.UTF8.GetBytes(a);
+            var bb = Encoding.UTF8.GetBytes(b);
+            return CryptographicOperations.FixedTimeEquals(ab, bb);
+        }
+
+        /// <summary>
         /// Append key/value pairs as a query string to <paramref name="uri"/>, preserving any
         /// existing query and properly URL-encoding both key and value. Null values are skipped.
         /// </summary>

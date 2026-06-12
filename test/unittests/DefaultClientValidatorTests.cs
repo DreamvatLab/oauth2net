@@ -217,8 +217,11 @@ namespace UnitTests
         }
 
         [Test]
-        public void ExractCreds_BodyHasIdButNoSecret_Fails()
+        public void ExractCreds_BodyHasIdButNoSecret_ExtractsEmptySecret()
         {
+            // Public clients (PKCE) send client_id but no secret. Extraction must succeed with an
+            // empty password and let VerifyClientAsync decide based on client.IsPublic; it must NOT
+            // reject here (that would make public clients impossible — see VerifyClient_PublicClient_*).
             var ctx = CreateContextWithForm(new Dictionary<string, Microsoft.Extensions.Primitives.StringValues>
             {
                 [OAuth2Consts.Form_ClientID] = "client1",
@@ -226,8 +229,9 @@ namespace UnitTests
 
             var mr = _sut.ExractClientCredentials(ctx);
 
-            Assert.That(mr.IsSuccess, Is.False);
-            Assert.That(mr.MsgCode, Is.EqualTo(OAuth2Consts.Err_invalid_request));
+            Assert.That(mr.IsSuccess, Is.True);
+            Assert.That(mr.Result.UserName, Is.EqualTo("client1"));
+            Assert.That(mr.Result.Password, Is.EqualTo(string.Empty));
         }
 
         // ----- VerifyClientAsync(NetworkCredential) -----

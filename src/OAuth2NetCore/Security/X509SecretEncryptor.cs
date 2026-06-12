@@ -17,11 +17,8 @@ namespace OAuth2NetCore.Security {
         private bool _disposed;
 
         public X509SecretEncryptor(string pfxPath, string pfxPassword)
-            : this(new X509Certificate2(pfxPath, pfxPassword))
+            : this(X509CertificateLoader.LoadPkcs12FromFile(pfxPath, pfxPassword))
         {
-            // Note: this convenience overload exists for back-compat. Callers on .NET 9+ should
-            // prefer the X509Certificate2 overload with a certificate loaded via
-            // X509CertificateLoader.LoadPkcs12FromFile, which applies stricter Pkcs12LoaderLimits.
         }
 
         public X509SecretEncryptor(X509Certificate2 cert)

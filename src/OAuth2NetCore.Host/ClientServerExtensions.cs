@@ -103,8 +103,10 @@ namespace Microsoft.Extensions.DependencyInjection {
                         o.Events.OnRedirectToAuthorizationEndpoint = options.OnRedirectToAuthorizationEndpoint;
                     else
                         o.Events.OnRedirectToAuthorizationEndpoint = (ctx) => {
-                            if (ctx.Properties.Parameters.ContainsKey("t")) {   // Login token RL: {1BC05F9A-1971-418B-ABA7-6C623C008D85}
-                                ctx.RedirectUri += "&t=" + ctx.Properties.Parameters["t"];
+                            if (ctx.Properties.Parameters.TryGetValue("t", out var t) && t != null) {   // Login token RL: {1BC05F9A-1971-418B-ABA7-6C623C008D85}
+                                // URL-encode: 't' originates from the user-supplied /signin?t= query and
+                                // must not be able to inject extra authorization-request parameters.
+                                ctx.RedirectUri += "&t=" + Uri.EscapeDataString(t.ToString());
                             }
                             ctx.Response.Redirect(ctx.RedirectUri);
                             return Task.CompletedTask;

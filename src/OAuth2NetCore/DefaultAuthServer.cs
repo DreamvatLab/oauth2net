@@ -324,9 +324,9 @@ namespace OAuth2NetCore {
                 return;
             }
 
-            // verify state
+            // verify state (constant-time to avoid leaking how much of the value matched)
             var storedState = await _stateStore.GetThenRemoveAsync(clientID + ":" + endSessionID);
-            if (storedState != state) {
+            if (!OAuth2Utils.FixedTimeEquals(storedState, state)) {
                 context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
                 await context.Response.WriteAsync("invalid state");
                 return;
@@ -505,7 +505,7 @@ namespace OAuth2NetCore {
         protected virtual async Task ErrorHandler(HttpResponse response, HttpStatusCode statusCode, string error, string errorDescription = null) {
             errorDescription = errorDescription ?? error;
 
-            _logger.LogWarning(errorDescription);
+            _logger.LogWarning("{Message}", errorDescription);
 
             response.StatusCode = (int)statusCode;
             response.ContentType = OAuth2Consts.ContentType_Json;

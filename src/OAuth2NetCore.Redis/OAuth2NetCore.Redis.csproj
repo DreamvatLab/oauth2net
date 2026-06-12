@@ -2,10 +2,6 @@
     <Import Project="../common.props" />
 
     <ItemGroup>
-        <PackageReference Include="coverlet.collector" Version="10.0.1">
-          <PrivateAssets>all</PrivateAssets>
-          <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-        </PackageReference>
         <PackageReference Include="Duende.IdentityModel" Version="8.1.0" />
         <PackageReference Include="StackExchange.Redis" Version="2.13.17" />
     </ItemGroup>
