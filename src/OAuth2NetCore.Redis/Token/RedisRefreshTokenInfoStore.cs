@@ -18,11 +18,19 @@ namespace OAuth2NetCore.Redis.Token {
             _secertEncryptor = secretEncryptor ?? new DefaultSecretEncryptor();
         }
 
+        /// <summary>
+        /// Derives the Redis key from a refresh token. Only the SHA-256 digest is stored, never the
+        /// token itself, so anyone able to list Redis keys cannot replay the refresh tokens they see.
+        /// Refresh tokens are 64 random bytes, so an unsalted fast hash is sufficient.
+        /// Must stay identical to RedisTokenStore.key in oauth2go.
+        /// </summary>
+        protected virtual string GetKey(string refreshToken) => _prefix + OAuth2Utils.ToSHA256Base64URL(refreshToken);
+
         public async Task SaveRefreshTokenAsync(string refreshToken, RefreshTokenInfo refreshTokenInfo, int expireSeconds)
         {
             var json = JsonSerializer.Serialize(refreshTokenInfo);
             json = _secertEncryptor.Encrypt(json);
-            await Database.StringSetAsync(_prefix + refreshToken, json, expiry: TimeSpan.FromSeconds(expireSeconds));
+            await Database.StringSetAsync(GetKey(refreshToken), json, expiry: TimeSpan.FromSeconds(expireSeconds));
 
         }
 
@@ -30,7 +38,7 @@ namespace OAuth2NetCore.Redis.Token {
         {
             // Atomic GETDEL (Redis 6.2+) — eliminates the race that would otherwise let two
             // concurrent requests both consume the same refresh token.
-            var json = await Database.StringGetDeleteAsync(_prefix + refreshToken);
+            var json = await Database.StringGetDeleteAsync(GetKey(refreshToken));
             if (!string.IsNullOrWhiteSpace(json))
             {
                 if (_secertEncryptor.TryDecrypt(json, out var decryptedJson))
@@ -44,7 +52,7 @@ namespace OAuth2NetCore.Redis.Token {
 
         public async Task RemoveRefreshTokenAsync(string refreshToken)
         {
-            await Database.KeyDeleteAsync(_prefix + refreshToken);
+            await Database.KeyDeleteAsync(GetKey(refreshToken));
         }
     }
 }
