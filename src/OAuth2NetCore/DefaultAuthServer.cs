@@ -189,13 +189,18 @@ namespace OAuth2NetCore {
         /// handle implicit token request
         /// </summary>
         protected virtual async Task ImplicitTokenRequestHandler(HttpContext context, IClient client, string scopesStr, string redirectURI, string state) {
-            var token = await _tokenGenerator.GenerateAccessTokenAsync(
+            var tokenResult = await _tokenGenerator.GenerateAccessTokenAsync(
                 context: context
                 , grantType: GrantType.Implicit
                 , client: client
                 , scopes: scopesStr.Split(OAuth2Consts.Seperator_Scope)
                 , username: context.User.Identity.Name
             );
+            if (!tokenResult.IsSuccess) {
+                await SubjectDeniedHandler(context.Response, OAuth2Consts.Err_access_denied, tokenResult);
+                return;
+            }
+            var token = tokenResult.Result;
 
             // RFC 6749 §4.2.2: implicit grant MUST return tokens in the URL fragment so they
             // never reach server access logs or the Referer header.
@@ -341,15 +346,19 @@ namespace OAuth2NetCore {
         /// </summary>
         protected virtual async Task HandleClientCredentialsTokenRequestAsync(HttpContext context, IClient client, string scopesStr) {
             // issue token directly
-            var token = await _tokenGenerator.GenerateAccessTokenAsync(
+            var tokenResult = await _tokenGenerator.GenerateAccessTokenAsync(
                                 context: context
                               , grantType: GrantType.ClientCredentials
                               , client: client
                               , scopes: scopesStr.Split(OAuth2Consts.Seperator_Scope)
                               , username: client.ID
                           );
+            if (!tokenResult.IsSuccess) {
+                await SubjectDeniedHandler(context.Response, OAuth2Consts.Err_invalid_grant, tokenResult);
+                return;
+            }
 
-            await WriteTokenAsync(context.Response, token, scopesStr, client);
+            await WriteTokenAsync(context.Response, tokenResult.Result, scopesStr, client);
         }
 
         /// <summary>
@@ -465,13 +474,18 @@ namespace OAuth2NetCore {
         /// </summary>
         protected virtual async Task IssueTokenByRequestInfoAsync(HttpContext context, GrantType grantType, IClient client, RefreshTokenInfo tokenRequestInfo) {
             // issue token
-            var token = await _tokenGenerator.GenerateAccessTokenAsync(
+            var tokenResult = await _tokenGenerator.GenerateAccessTokenAsync(
                    context: context
                  , grantType: grantType
                  , client: client
                  , scopes: tokenRequestInfo.Scopes.Split(OAuth2Consts.Seperator_Scope)
                  , username: tokenRequestInfo.UN
              );
+            if (!tokenResult.IsSuccess) {
+                await SubjectDeniedHandler(context.Response, OAuth2Consts.Err_invalid_grant, tokenResult);
+                return;
+            }
+            var token = tokenResult.Result;
 
             if (client.Grants.Contains(OAuth2Consts.GrantType_RefreshToken)) {// allowed to use refresh token
                 //var surferID = GetSurferID(context);
@@ -497,6 +511,15 @@ namespace OAuth2NetCore {
             } else {
                 await response.WriteAsync(GenereateTokenJson(token, refreshToken, scopes, client));
             }
+        }
+
+        /// <summary>
+        /// answer a token request whose subject was denied by ITokenClaimBuilder:
+        /// invalid_grant at the token endpoint, access_denied at the authorize endpoint
+        /// </summary>
+        protected virtual Task SubjectDeniedHandler<T>(HttpResponse response, string error, MessageResult<T> result) {
+            var description = string.IsNullOrWhiteSpace(result.MsgCodeDescription) ? result.MsgCode : result.MsgCodeDescription;
+            return ErrorHandler(response, HttpStatusCode.BadRequest, error, description);
         }
 
         /// <summary>

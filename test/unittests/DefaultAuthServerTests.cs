@@ -216,6 +216,78 @@ namespace UnitTests
             Assert.That(tokenStore.Removed, Does.Contain("rt-abc"));
         }
 
+        // ---------- subject denial: ITokenClaimBuilder refuses the subject (e.g. disabled user) ----------
+
+        [Test]
+        public async Task RefreshToken_SubjectDenied_ReturnsInvalidGrant_AndIssuesNoRefreshToken()
+        {
+            var client = NewClient(grants: new[] { OAuth2Consts.GrantType_AuthorizationCode, OAuth2Consts.GrantType_RefreshToken });
+            var tokenStore = new FakeRefreshTokenInfoStore(new RefreshTokenInfo { ClientID = client.ID, Scopes = "read", UN = "alice" });
+            var sut = NewSut(new FakeClientValidator(client), new FakeTokenGenerator("tok", denied: true), tokenStore: tokenStore);
+
+            var ctx = NewContext(authenticated: false, form: new Dictionary<string, string>
+            {
+                [OAuth2Consts.Form_GrantType] = OAuth2Consts.GrantType_RefreshToken,
+                [OAuth2Consts.Form_ClientID] = client.ID,
+                [OAuth2Consts.Form_ClientSecret] = client.Secret,
+                [OAuth2Consts.Form_RefreshToken] = "old-rt",
+            });
+
+            await sut.TokenRequestHandler(ctx);
+
+            Assert.That(ctx.Response.StatusCode, Is.EqualTo((int)HttpStatusCode.BadRequest));
+            var body = ReadBody(ctx);
+            Assert.That(body, Does.Contain("\"error\":\"" + OAuth2Consts.Err_invalid_grant + "\""));
+            Assert.That(body, Does.Not.Contain("access_token"));
+            Assert.That(tokenStore.Saved, Is.Empty, "no new refresh token may be issued for a denied subject");
+        }
+
+        [Test]
+        public async Task AuthCode_SubjectDenied_ReturnsInvalidGrant()
+        {
+            var client = NewClient(grants: new[] { OAuth2Consts.GrantType_AuthorizationCode });
+            var codeStore = new FakeAuthCodeStore();
+            await codeStore.SaveAsync("the-code", new RefreshTokenInfo { ClientID = client.ID, Scopes = "read", RedirectUri = "https://app.example/cb", UN = "alice" });
+            var opts = new AuthServerOptions { PKCERequired = false };
+            var sut = NewSut(new FakeClientValidator(client), new FakeTokenGenerator("tok", denied: true), codeStore: codeStore, options: opts);
+
+            var ctx = NewContext(authenticated: false, form: new Dictionary<string, string>
+            {
+                [OAuth2Consts.Form_GrantType] = OAuth2Consts.GrantType_AuthorizationCode,
+                [OAuth2Consts.Form_ClientID] = client.ID,
+                [OAuth2Consts.Form_ClientSecret] = client.Secret,
+                [OAuth2Consts.Form_Code] = "the-code",
+                [OAuth2Consts.Form_RedirectUri] = "https://app.example/cb",
+            });
+
+            await sut.TokenRequestHandler(ctx);
+
+            Assert.That(ctx.Response.StatusCode, Is.EqualTo((int)HttpStatusCode.BadRequest));
+            Assert.That(ReadBody(ctx), Does.Contain("\"error\":\"" + OAuth2Consts.Err_invalid_grant + "\""));
+        }
+
+        [Test]
+        public async Task Implicit_SubjectDenied_ReturnsAccessDenied_WithoutRedirect()
+        {
+            var client = NewClient(grants: new[] { OAuth2Consts.GrantType_Implicit });
+            var sut = NewSut(new FakeClientValidator(client), new FakeTokenGenerator("tok", denied: true));
+
+            var ctx = NewContext(authenticated: true, query: new Dictionary<string, string>
+            {
+                [OAuth2Consts.Form_ResponseType] = OAuth2Consts.ResponseType_Token,
+                [OAuth2Consts.Form_ClientID] = client.ID,
+                [OAuth2Consts.Form_RedirectUri] = "https://app.example/cb",
+                [OAuth2Consts.Form_Scope] = "read",
+                [OAuth2Consts.Form_State] = "st-1",
+            });
+
+            await sut.AuthorizeRequestHandler(ctx);
+
+            Assert.That(ctx.Response.StatusCode, Is.EqualTo((int)HttpStatusCode.BadRequest));
+            Assert.That(ReadBody(ctx), Does.Contain("\"error\":\"" + OAuth2Consts.Err_access_denied + "\""));
+            Assert.That(ctx.Response.Headers["Location"].ToString(), Is.Empty);
+        }
+
         // ============================================================
         //   helpers
         // ============================================================
@@ -342,9 +414,16 @@ namespace UnitTests
         private sealed class FakeTokenGenerator : ITokenGenerator
         {
             private readonly string _token;
-            public FakeTokenGenerator(string token) => _token = token;
-            public Task<string> GenerateAccessTokenAsync(HttpContext context, GrantType grantType, IClient client, string[] scopes, string username)
-                => Task.FromResult(_token);
+            private readonly bool _denied;
+            public FakeTokenGenerator(string token, bool denied = false)
+            {
+                _token = token;
+                _denied = denied;
+            }
+            public Task<MessageResult<string>> GenerateAccessTokenAsync(HttpContext context, GrantType grantType, IClient client, string[] scopes, string username)
+                => Task.FromResult(_denied
+                    ? new MessageResult<string> { MsgCode = OAuth2Consts.Msg_SubjectDenied, MsgCodeDescription = "user is inactive" }
+                    : new MessageResult<string> { Result = _token });
             public Task<string> GenerateRefreshTokenAsync() => Task.FromResult("refresh");
         }
 
@@ -368,9 +447,12 @@ namespace UnitTests
 
         private sealed class FakeRefreshTokenInfoStore : IRefreshTokenInfoStore
         {
+            private readonly RefreshTokenInfo _info;
+            public FakeRefreshTokenInfoStore(RefreshTokenInfo info = null) => _info = info;
             public HashSet<string> Removed { get; } = new();
-            public Task SaveRefreshTokenAsync(string rt, RefreshTokenInfo info, int exp) => Task.CompletedTask;
-            public Task<RefreshTokenInfo> GetThenRemoveTokenInfoAsync(string rt) => Task.FromResult<RefreshTokenInfo>(null);
+            public HashSet<string> Saved { get; } = new();
+            public Task SaveRefreshTokenAsync(string rt, RefreshTokenInfo info, int exp) { Saved.Add(rt); return Task.CompletedTask; }
+            public Task<RefreshTokenInfo> GetThenRemoveTokenInfoAsync(string rt) => Task.FromResult(_info);
             public Task RemoveRefreshTokenAsync(string rt) { Removed.Add(rt); return Task.CompletedTask; }
         }
 

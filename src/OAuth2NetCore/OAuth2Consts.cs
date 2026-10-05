@@ -44,6 +44,11 @@
         //public const string Format_Token2 = "{{\"" + Form_AccessToken + "\":\"{0}\",\"" + Form_RefreshToken + "\":\"{1}\",\"" + Form_ExpiresIn + "\":{2},\"" + Form_RefreshTokenExpiresIn + "\":{3},\"" + Form_Scope + "\":\"{4}\",\"" + Form_TokenType + "\":\"Bearer\"}}";
         public const string Format_Error = "{{\"error\":\"{0}\", \"error_description\":\"{1}\"}}";
         public const string Msg_Success = "";
+        /// <summary>
+        /// MsgCode returned by ITokenClaimBuilder when the subject is no longer allowed to obtain tokens
+        /// (e.g. the user has been disabled or removed).
+        /// </summary>
+        public const string Msg_SubjectDenied = "subject_denied";
         public const string Err_invalid_request = "invalid_request";
         public const string Err_invalid_client = "invalid_client";
         public const string Err_invalid_grant = "invalid_grant";

@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 namespace auth {
     public class MyTokenClaimBuilder : ITokenClaimBuilder
     {
-        public Task<IList<Claim>> GenerateAsync(HttpContext context, GrantType grantType, IClient client, string[] scopes, string username)
+        public Task<MessageResult<IList<Claim>>> GenerateAsync(HttpContext context, GrantType grantType, IClient client, string[] scopes, string username)
         {
             var claims = new List<Claim>();
             claims.Add(new Claim(OAuth2Consts.Claim_Name, username));
@@ -47,7 +47,9 @@ namespace auth {
                 claims.Add(new Claim(OAuth2Consts.Claim_Role, "4", ClaimValueTypes.Integer64));
             }
 
-            return Task.FromResult<IList<Claim>>(claims);
+            // return new MessageResult<IList<Claim>> { MsgCode = OAuth2Consts.Msg_SubjectDenied } here
+            // to refuse issuing a token, e.g. when the user has been disabled
+            return Task.FromResult(new MessageResult<IList<Claim>> { Result = claims });
         }
     }
 }

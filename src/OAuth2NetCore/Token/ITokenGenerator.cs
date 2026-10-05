@@ -5,7 +5,10 @@ using System.Threading.Tasks;
 namespace OAuth2NetCore.Token {
     public interface ITokenGenerator
     {
-        Task<string> GenerateAccessTokenAsync(HttpContext context, GrantType grantType, IClient client, string[] scopes, string username);
+        /// <summary>
+        /// Issues an access token. A non-success result means the subject was denied by ITokenClaimBuilder.
+        /// </summary>
+        Task<MessageResult<string>> GenerateAccessTokenAsync(HttpContext context, GrantType grantType, IClient client, string[] scopes, string username);
         Task<string> GenerateRefreshTokenAsync();
     }
 }

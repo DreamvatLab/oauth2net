@@ -23,26 +23,34 @@ namespace OAuth2NetCore.Token {
             _claimGenerator = claimGenerator;
         }
 
-        public async Task<string> GenerateAccessTokenAsync(HttpContext context, GrantType grantType, IClient client, string[] scopes, string username)
+        public async Task<MessageResult<string>> GenerateAccessTokenAsync(HttpContext context, GrantType grantType, IClient client, string[] scopes, string username)
         {
             var securityKey = _securityKeyProvider.GetSecurityKey();
 
             var handler = new JsonWebTokenHandler();
             var now = DateTime.UtcNow;
 
-            var claims = await _claimGenerator.GenerateAsync(context, grantType, client, scopes, username);
+            var claimsResult = await _claimGenerator.GenerateAsync(context, grantType, client, scopes, username);
+            if (!claimsResult.IsSuccess)
+            {
+                return new MessageResult<string> { MsgCode = claimsResult.MsgCode, MsgCodeDescription = claimsResult.MsgCodeDescription };
+            }
+            if (claimsResult.Result == null)
+            {
+                throw new InvalidOperationException("token claim builder returned null claims");
+            }
 
             var descriptor = new SecurityTokenDescriptor
             {
                 IssuedAt = now,
                 NotBefore = now,
                 Expires = now.AddSeconds(client.AccessTokenExpireSeconds),
-                Subject = new ClaimsIdentity(claims),
+                Subject = new ClaimsIdentity(claimsResult.Result),
                 SigningCredentials = new SigningCredentials(securityKey, AuthServerOptions.SigningAlgorithm)
             };
 
             string token = handler.CreateToken(descriptor);
-            return token;
+            return new MessageResult<string> { Result = token };
         }
 
         public Task<string> GenerateRefreshTokenAsync()
